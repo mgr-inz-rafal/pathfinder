@@ -33,12 +33,27 @@ struct Playfield {
 }
 
 impl Playfield {
-    fn new(width: u64, height: u64) -> Playfield {
-        let (start, destination) : (Point2d, Point2d) = Default::default(); 
+    // TODO: Validate width*height = vec.len
+    fn new(width: u64, height: u64, start: Point2d, destination: Point2d, map: Vec<f64>) -> Playfield {
         let n = Node { distance: MAX_DISTANCE, ..Default::default() };
-        let mut x: Playfield = Playfield { width, height, field: vec![], start, destination };
-        x.field.resize((x.width * x.height) as usize, n);
-        x
+        let mut playfield: Playfield = Playfield { width, height, start, destination, ..Default::default() };
+        playfield.field.resize((playfield.width * playfield.height) as usize, n);
+        playfield.init_with_vector(map);
+        playfield
+    }
+
+    fn init_with_vector(&mut self, playfield: Vec<f64>) {
+        for x in 0..playfield.len() {
+            let position = self.from_index(x);
+            self.field[x] = Node{
+                penalty: playfield[x],
+                visited: false,
+                distance: MAX_DISTANCE,
+                my_pos: Point2d{ x: position.0, y: position.1 },
+                ..Default::default() };
+        }
+        let start_index = self.to_index_from_point(&self.start);
+        self.field[start_index].distance = 0.0;
     }
 
     // TODO: Rework this. Maybe playfield should return neighbours according to given offset?
@@ -123,30 +138,9 @@ impl Playfield {
         self.from_index_to_point(min_index)
     }
 
-    fn init_with_vector(&mut self, playfield: Vec<f64>) {
-        for x in 0..playfield.len() {
-            let position = self.from_index(x);
-            self.field[x] = Node{
-                penalty: playfield[x],
-                visited: false,
-                distance: MAX_DISTANCE,
-                my_pos: Point2d{ x: position.0, y: position.1 },
-                ..Default::default() };
-        }
-    }
-
-    fn set_start(&mut self, position: Point2d) {
-        self.start = position;
-        let index = self.to_index(self.start.x, self.start.y);
-        self.field[index].distance = 0.0;
-    }
-
-    fn set_destination(&mut self, position: Point2d) {
-        self.destination = position;
-    }
-
     #[cfg(debug_assertions)]
     fn _dump(&self) {   // For debug purposes only
+        println!("Start: {:?}   End: {:?}", self.start, self.destination);
         for y in 0..self.height {
             for x in 0..self.width {
                 print!("{:5.2} ", self.field[self.to_index(x, y)].penalty);
@@ -174,16 +168,10 @@ impl Playfield {
 }
 
 pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> String {
-    let mut playfield = create_playfield(width, height, map, start, destination);
+    let start_point = Point2d {x: start.0, y: start.1};
+    let destination_point = Point2d {x: destination.0, y: destination.1};
+    let mut playfield = Playfield::new(width, height, start_point, destination_point, map);
     calculate_from_playfield(&mut playfield)
-}
-
-fn create_playfield(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> Playfield {
-    let mut playfield = Playfield::new(width, height);
-    playfield.init_with_vector(map);
-    playfield.set_start(Point2d{x: start.0, y: start.1});
-    playfield.set_destination(Point2d{x: destination.0, y: destination.1});
-    playfield
 }
 
 fn calculate_from_playfield(playfield: &mut Playfield) -> String {
