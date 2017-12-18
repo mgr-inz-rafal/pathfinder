@@ -1,5 +1,3 @@
-
-
 enum PathfindingError {
     OutOfMap
 }
@@ -26,7 +24,7 @@ static MAX_DISTANCE: f64 = std::f64::MAX;
 
 #[derive(Default)]
 // TODO: Privatize filed
-pub struct Playfield {
+struct Playfield {
     pub width: u64,
     pub height: u64,
     field: Vec<Node>,
@@ -35,7 +33,7 @@ pub struct Playfield {
 }
 
 impl Playfield {
-    pub fn new(width: u64, height: u64) -> Playfield {
+    fn new(width: u64, height: u64) -> Playfield {
         let (start, destination) : (Point2d, Point2d) = Default::default(); 
         let n = Node { distance: MAX_DISTANCE, ..Default::default() };
         let mut x: Playfield = Playfield { width, height, field: vec![], start, destination };
@@ -137,7 +135,18 @@ impl Playfield {
         }
     }
 
-    fn _dump(&self) {
+    fn set_start(&mut self, position: Point2d) {
+        self.start = position;
+        let index = self.to_index(self.start.x, self.start.y);
+        self.field[index].distance = 0.0;
+    }
+
+    fn set_destination(&mut self, position: Point2d) {
+        self.destination = position;
+    }
+
+    #[cfg(debug_assertions)]
+    fn _dump(&self) {   // For debug purposes only
         for y in 0..self.height {
             for x in 0..self.width {
                 print!("{:5.2} ", self.field[self.to_index(x, y)].penalty);
@@ -162,27 +171,21 @@ impl Playfield {
         let shortest_distance_position = self.find_shortest_distance();
         println!("Shortest distance at: {:?}", shortest_distance_position);
     }
-        
-    fn set_start(&mut self, position: Point2d) {
-        self.start = position;
-        let index = self.to_index(self.start.x, self.start.y);
-        self.field[index].distance = 0.0;
-    }
-
-    fn set_destination(&mut self, position: Point2d) {
-        self.destination = position;
-    }
 }
 
 pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> String {
+    let mut playfield = create_playfield(width, height, map, start, destination);
+    calculate_from_playfield(&mut playfield)
+}
+
+fn create_playfield(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> Playfield {
     let mut playfield = Playfield::new(width, height);
     playfield.init_with_vector(map);
     playfield.set_start(Point2d{x: start.0, y: start.1});
     playfield.set_destination(Point2d{x: destination.0, y: destination.1});
-    calculate_from_playfield(&mut playfield)
+    playfield
 }
 
-// TODO: Algorithm shouldn't mutate the input
 fn calculate_from_playfield(playfield: &mut Playfield) -> String {
     // Validate precondition (map initialized, start and end set correctly, etc.)
     let offsets: [(i64, i64); 4] = [
