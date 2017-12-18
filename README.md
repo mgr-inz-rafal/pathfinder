@@ -50,3 +50,4 @@ So far the only aim of the library is to find shortest path to the destination o
 ```
     Reversed path to destination: 4,1 3,1 3,2 2,2 1,2 1,1
 ```
+Please note that the path avoids the field at 2,1 which has a high penalty defined (0.7).
