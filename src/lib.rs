@@ -1,3 +1,5 @@
+use std::fmt;
+
 enum PathfindingError {
     OutOfMap
 }
@@ -30,6 +32,38 @@ struct Playfield {
     field: Vec<Node>,
     start: Point2d,
     pub destination: Point2d,
+}
+
+#[cfg(debug_assertions)]
+impl fmt::Debug for Playfield {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Start: {:?}   End: {:?}", self.start, self.destination).unwrap();
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let point = Point2d{x: x, y: y};
+                write!(f, "{:5.2} ", self.field[self.to_index(&point)].penalty).unwrap();
+                let point = Point2d{ x, y };
+                match point {
+                    ref tmp if (*tmp == self.start)         => write!(f, "S").unwrap(),
+                    ref tmp if (*tmp == self.destination)   => write!(f, "D").unwrap(),
+                    _ => write!(f, ".").unwrap()
+                };
+                match self.field[self.to_index(&point)].visited {
+                    true => write!(f, "1  ").unwrap(),
+                    false => write!(f, "0  ").unwrap()
+                };
+            }
+            writeln!(f).unwrap();
+            for x in 0..self.width {
+                let point = Point2d{x: x, y: y};
+                write!(f, "{:8.2} ", self.field[self.to_index(&point)].distance).unwrap();
+            }
+            writeln!(f).unwrap();
+            writeln!(f).unwrap();
+        }
+        let shortest_distance_position = self.find_shortest_distance();
+        write!(f, "Shortest distance at: {:?}", shortest_distance_position)
+    }
 }
 
 impl Playfield {
@@ -126,36 +160,6 @@ impl Playfield {
         }
         self.from_index(min_index)
     }
-
-    /*
-    #[cfg(debug_assertions)]
-    fn _dump(&self) {   // For debug purposes only
-        println!("Start: {:?}   End: {:?}", self.start, self.destination);
-        for y in 0..self.height {
-            for x in 0..self.width {
-                print!("{:5.2} ", self.field[self.to_index(x, y)].penalty);
-                let point = Point2d{ x, y };
-                match point {
-                    ref tmp if (*tmp == self.start)         => print!("S"),
-                    ref tmp if (*tmp == self.destination)   => print!("D"),
-                    _ => print!(".")
-                }
-                match self.field[self.to_index(x, y)].visited {
-                    true => print!("1  "),
-                    false => print!("0  ")
-                }
-            }
-            println!();
-            for x in 0..self.width {
-                print!("{:8.2} ", self.field[self.to_index(x, y)].distance);
-            }
-            println!();
-            println!();
-        }
-        let shortest_distance_position = self.find_shortest_distance();
-        println!("Shortest distance at: {:?}", shortest_distance_position);
-    }
-    */
 }
 
 pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> String {
