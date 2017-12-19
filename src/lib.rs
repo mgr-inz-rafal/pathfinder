@@ -49,10 +49,10 @@ impl Playfield {
                 penalty: playfield[x],
                 visited: false,
                 distance: MAX_DISTANCE,
-                my_pos: Point2d{ x: position.0, y: position.1 },
+                my_pos: position,
                 ..Default::default() };
         }
-        let start_index = self.to_index_from_point(&self.start);
+        let start_index = self.to_index(&self.start);
         self.field[start_index].distance = 0.0;
     }
 
@@ -90,39 +90,28 @@ impl Playfield {
         }
     }
 
-    // TODO: to_index from Point2d, not x, y
-    fn to_index(&self, x: u64, y: u64) -> usize {
-        (y * self.width + x) as usize
-    }
-
-    fn to_index_from_point(&self, point: &Point2d) -> usize {
+    fn to_index(&self, point: &Point2d) -> usize {
         (point.y * self.width + point.x) as usize
     }
 
-    fn from_index(&self, i: usize) -> (u64, u64) {
-        let y = (i as u64) / self.width;
-        let x = (i as u64) - y * self.width;
-        (x, y)
-    }
-
-    fn from_index_to_point(&self, i: usize) -> Point2d {
+    fn from_index(&self, i: usize) -> Point2d {
         let y = (i as u64) / self.width;
         let x = (i as u64) - y * self.width;
         Point2d { x, y }
     }
 
     fn set_visited(&mut self, point: &Point2d) {
-        let index = self.to_index_from_point(&point);
+        let index = self.to_index(&point);
         let pt = &mut self.field[index];
         pt.visited = true;
     }
 
     fn get_field_at(&self, point: &Point2d) -> Node {
-        return self.field[self.to_index_from_point(point)].clone();
+        return self.field[self.to_index(point)].clone();
     }
 
     fn set_field_at(&mut self, point: &Point2d, node: &Node) {
-        let index = self.to_index(point.x, point.y);
+        let index = self.to_index(point);
         self.field[index] = node.clone();
     }
 
@@ -135,9 +124,10 @@ impl Playfield {
                 min_index = index;
             }
         }
-        self.from_index_to_point(min_index)
+        self.from_index(min_index)
     }
 
+    /*
     #[cfg(debug_assertions)]
     fn _dump(&self) {   // For debug purposes only
         println!("Start: {:?}   End: {:?}", self.start, self.destination);
@@ -165,6 +155,7 @@ impl Playfield {
         let shortest_distance_position = self.find_shortest_distance();
         println!("Shortest distance at: {:?}", shortest_distance_position);
     }
+    */
 }
 
 pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> String {
