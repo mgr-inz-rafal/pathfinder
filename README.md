@@ -47,7 +47,7 @@ So far the only aim of the library is to find shortest path to the destination o
 ```
 
 5. See the results formatted as JSON
-```
+```json
     {"steps":[{"x":1,"y":1},{"x":1,"y":2},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":4,"y":1}]}
 ```
 Please note that the calculated path avoids the field at 2,1 which has a high penalty defined (0.7).
