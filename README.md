@@ -46,8 +46,8 @@ So far the only aim of the library is to find shortest path to the destination o
     let result = calculate_shortest_path(width, height, test_level, start, destination);
 ```
 
-5. See the results (so far in reversed direction)
+5. See the results formatted as JSON
 ```
-    Reversed path to destination: 4,1 3,1 3,2 2,2 1,2 1,1
+    {"steps":[{"x":1,"y":1},{"x":1,"y":2},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":4,"y":1}]}
 ```
 Please note that the calculated path avoids the field at 2,1 which has a high penalty defined (0.7).

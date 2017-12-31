@@ -1,10 +1,15 @@
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
+
 use std::fmt;
 
 enum PathfindingError {
     OutOfMap
 }
 
-#[derive(Default, PartialEq, Debug, Clone)]
+#[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Point2d {
     pub x: u64,
     pub y: u64
@@ -34,7 +39,7 @@ struct Playfield {
     pub destination: Point2d,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct Path {
     steps: Vec<Point2d>
 }
@@ -117,7 +122,6 @@ impl Playfield {
         loop {
             let n = self.get_field_at(&current_pos);
             path.steps.insert(0, n.my_pos);
-
             match n.predecessor {
                 None => return,
                 Some(cp) => {
@@ -197,7 +201,8 @@ fn calculate_from_playfield(playfield: &mut Playfield) -> String {
                         playfield.set_field_at(&position, &candidate);
                         if position == playfield.destination {
                             playfield.glue_path_to_destination(candidate, &mut path);
-                            return "xxx".to_string();
+                            let serialized = serde_json::to_string(&path).unwrap();
+                            return serialized;
                         }
                     }
                 }
@@ -227,8 +232,17 @@ mod tests {
         let start = (1, 1);
         let destination = (4, 1);
         let result = calculate_shortest_path(width, height, test_level, start, destination);
-        assert_eq!(result.trim(), "4,1 3,1 3,2 2,2 1,2 1,1");
-    }
+
+        // Got JSON - deserialize it and verify predefined path
+        let deserialized: Path = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(deserialized.steps[0], Point2d{ x: 1, y: 1});
+        assert_eq!(deserialized.steps[1], Point2d{ x: 1, y: 2});
+        assert_eq!(deserialized.steps[2], Point2d{ x: 2, y: 2});
+        assert_eq!(deserialized.steps[3], Point2d{ x: 3, y: 2});
+        assert_eq!(deserialized.steps[4], Point2d{ x: 3, y: 1});
+        assert_eq!(deserialized.steps[5], Point2d{ x: 4, y: 1});
+   }
 }
 
 // TODO: Return with Option everywhere
