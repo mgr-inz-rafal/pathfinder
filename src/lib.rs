@@ -34,6 +34,11 @@ struct Playfield {
     pub destination: Point2d,
 }
 
+#[derive(Default)]
+struct Path {
+    steps: Vec<Point2d>
+}
+
 #[cfg(debug_assertions)]
 impl fmt::Debug for Playfield {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -107,14 +112,12 @@ impl Playfield {
         }
     }
 
-    fn glue_path_to_destination(&self, node: Node, buf: &mut String) {
+    fn glue_path_to_destination(&self, node: Node, path: &mut Path) {
         let mut current_pos = Point2d { x: node.my_pos.x, y: node.my_pos.y};
         loop {
             let n = self.get_field_at(&current_pos);
-            buf.push_str(&n.my_pos.x.to_string());
-            buf.push_str(",");
-            buf.push_str(&n.my_pos.y.to_string());
-            buf.push_str(" ");
+            path.steps.insert(0, n.my_pos);
+
             match n.predecessor {
                 None => return,
                 Some(cp) => {
@@ -175,7 +178,7 @@ fn calculate_from_playfield(playfield: &mut Playfield) -> String {
         (-1, 0), (1, 0), (0, -1), (0, 1)
     ];
 
-    let mut buf = String::new();
+    let mut path: Path = Default::default();
 
     loop {
         let current_pos = playfield.find_shortest_distance();
@@ -193,8 +196,8 @@ fn calculate_from_playfield(playfield: &mut Playfield) -> String {
                         candidate.predecessor = Some(current_node.my_pos.clone());
                         playfield.set_field_at(&position, &candidate);
                         if position == playfield.destination {
-                            playfield.glue_path_to_destination(candidate, &mut buf);
-                            return buf;
+                            playfield.glue_path_to_destination(candidate, &mut path);
+                            return "xxx".to_string();
                         }
                     }
                 }
