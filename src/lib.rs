@@ -1,3 +1,5 @@
+// TODO: Not sure if lib should spit out JSON... Maybe 'pathfinder-server' should
+// just receive an object and then work on the serialization.
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
