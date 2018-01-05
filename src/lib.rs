@@ -188,7 +188,6 @@ fn calculate_from_playfield(playfield: &mut Playfield) -> String {
 
     loop {
         let current_pos = playfield.find_shortest_distance();
-        println!("{:?}", current_pos);
         let current_node = playfield.get_field_at(&current_pos);
         playfield.set_visited(&current_pos);
 
