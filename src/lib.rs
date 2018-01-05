@@ -27,7 +27,7 @@ pub struct Node {
 }
 
 #[cfg(debug_assertions)]
-static MAX_DISTANCE: f64 = 6666.0;
+static MAX_DISTANCE: f64 = 6666666666.0;
 #[cfg(not(debug_assertions))]
 static MAX_DISTANCE: f64 = std::f64::MAX;
 
@@ -188,6 +188,7 @@ fn calculate_from_playfield(playfield: &mut Playfield) -> String {
 
     loop {
         let current_pos = playfield.find_shortest_distance();
+        println!("{:?}", current_pos);
         let current_node = playfield.get_field_at(&current_pos);
         playfield.set_visited(&current_pos);
 
