@@ -26,22 +26,15 @@ pub struct Node {
     pub predecessor: Option<Point2d>,
 }
 
+static OFFSETS: [(i64, i64); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+
 pub struct Pathfinder {
     playfield: Playfield
 }
 
 impl Pathfinder {
-    fn new(playfield: Playfield) -> Pathfinder {
-        let pathfinder: Pathfinder = Pathfinder { playfield };
-        pathfinder
-    }
-
     fn calculate(&mut self) -> String {
         // Validate precondition (map initialized, start and end set correctly, etc.)
-        let offsets: [(i64, i64); 4] = [
-            (-1, 0), (1, 0), (0, -1), (0, 1)
-        ];
-
         let mut path: Path = Default::default();
 
         loop {
@@ -49,7 +42,7 @@ impl Pathfinder {
             let current_node = self.playfield.get_field_at(&current_pos);
             self.playfield.set_visited(&current_pos);
 
-            for offset in offsets.iter() {
+            for offset in OFFSETS.iter() {
                 let new_pos = self.playfield.apply_offset(&current_pos, offset);
                 match new_pos {
                     Err(_) => { continue; },
@@ -217,7 +210,7 @@ impl Playfield {
 pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> String {
     let start_point = Point2d {x: start.0, y: start.1};
     let destination_point = Point2d {x: destination.0, y: destination.1};
-    let mut playfield = Playfield::new(width, height, start_point, destination_point, map);
+    let playfield = Playfield::new(width, height, start_point, destination_point, map);
     let mut pf = Pathfinder{ playfield };
     pf.calculate()
 }
