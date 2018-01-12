@@ -26,9 +26,52 @@ pub struct Node {
     pub predecessor: Option<Point2d>,
 }
 
-#[cfg(debug_assertions)]
-static MAX_DISTANCE: f64 = 6666666666.0;
-#[cfg(not(debug_assertions))]
+pub struct Pathfinder {
+    playfield: Playfield
+}
+
+impl Pathfinder {
+    fn new(playfield: Playfield) -> Pathfinder {
+        let pathfinder: Pathfinder = Pathfinder { playfield };
+        pathfinder
+    }
+
+    fn calculate(&mut self) -> String {
+        // Validate precondition (map initialized, start and end set correctly, etc.)
+        let offsets: [(i64, i64); 4] = [
+            (-1, 0), (1, 0), (0, -1), (0, 1)
+        ];
+
+        let mut path: Path = Default::default();
+
+        loop {
+            let current_pos = self.playfield.find_shortest_distance();
+            let current_node = self.playfield.get_field_at(&current_pos);
+            self.playfield.set_visited(&current_pos);
+
+            for offset in offsets.iter() {
+                let new_pos = self.playfield.apply_offset(&current_pos, offset);
+                match new_pos {
+                    Err(_) => { continue; },
+                    Ok(position) => {
+                        let mut candidate = self.playfield.get_field_at(&position);
+                        if !candidate.visited {
+                            candidate.distance = current_node.distance + candidate.penalty;
+                            candidate.predecessor = Some(current_node.my_pos.clone());
+                            self.playfield.set_field_at(&position, &candidate);
+                            if position == self.playfield.destination {
+                                self.playfield.glue_path_to_destination(candidate, &mut path);
+                                let serialized = serde_json::to_string(&path).unwrap();
+                                return serialized;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 static MAX_DISTANCE: f64 = std::f64::MAX;
 
 #[derive(Default)]
@@ -175,45 +218,8 @@ pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u
     let start_point = Point2d {x: start.0, y: start.1};
     let destination_point = Point2d {x: destination.0, y: destination.1};
     let mut playfield = Playfield::new(width, height, start_point, destination_point, map);
-    calculate_from_playfield(&mut playfield)
-}
-
-fn calculate_from_playfield(playfield: &mut Playfield) -> String {
-    // Validate precondition (map initialized, start and end set correctly, etc.)
-    let offsets: [(i64, i64); 4] = [
-        (-1, 0), (1, 0), (0, -1), (0, 1)
-    ];
-
-    let mut path: Path = Default::default();
-
-    loop {
-        let current_pos = playfield.find_shortest_distance();
-        let current_node = playfield.get_field_at(&current_pos);
-        playfield.set_visited(&current_pos);
-
-        for offset in offsets.iter() {
-            let new_pos = playfield.apply_offset(&current_pos, offset);
-            match new_pos {
-                Err(_) => { continue; },
-                Ok(position) => {
-                    let mut candidate = playfield.get_field_at(&position);
-                    if !candidate.visited {
-                        candidate.distance = current_node.distance + 1000.0 * candidate.penalty;    // TODO: Do not hardcode 1000.0
-                        candidate.predecessor = Some(current_node.my_pos.clone());
-                        playfield.set_field_at(&position, &candidate);
-                        if position == playfield.destination {
-                            playfield.glue_path_to_destination(candidate, &mut path);
-                            let serialized = serde_json::to_string(&path).unwrap();
-                            return serialized;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Dead code
-    return "Not found".to_string();
+    let mut pf = Pathfinder{ playfield };
+    pf.calculate()
 }
 
 #[cfg(test)]
