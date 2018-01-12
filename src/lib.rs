@@ -28,40 +28,46 @@ pub struct Node {
 
 static OFFSETS: [(i64, i64); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
 
+#[derive(Default)]
 pub struct Pathfinder {
+    current_pos: Point2d,
+    current_node: Node,
+    candidate: Node,
+    path: Path,
     playfield: Playfield
 }
 
 impl Pathfinder {
     fn calculate(&mut self) -> String {
-        // Validate precondition (map initialized, start and end set correctly, etc.)
-        let mut path: Path = Default::default();
-
         loop {
-            let current_pos = self.playfield.find_shortest_distance();
-            let current_node = self.playfield.get_field_at(&current_pos);
-            self.playfield.set_visited(&current_pos);
+            self.current_pos = self.playfield.find_shortest_distance();
+            self.current_node = self.playfield.get_field_at(&self.current_pos);
+            self.playfield.set_visited(&self.current_pos);
 
             for offset in OFFSETS.iter() {
-                let new_pos = self.playfield.apply_offset(&current_pos, offset);
+                let new_pos = self.playfield.apply_offset(&self.current_pos, offset);
                 match new_pos {
                     Err(_) => { continue; },
                     Ok(position) => {
-                        let mut candidate = self.playfield.get_field_at(&position);
-                        if !candidate.visited {
-                            candidate.distance = current_node.distance + candidate.penalty;
-                            candidate.predecessor = Some(current_node.my_pos.clone());
-                            self.playfield.set_field_at(&position, &candidate);
-                            if position == self.playfield.destination {
-                                self.playfield.glue_path_to_destination(candidate, &mut path);
-                                let serialized = serde_json::to_string(&path).unwrap();
-                                return serialized;
-                            }
+                        if self.apply_candidate(position) {
+                            self.playfield.glue_path_to_destination(&self.candidate, &mut self.path);
+                            let serialized = serde_json::to_string(&self.path).unwrap();
+                            return serialized;
                         }
                     }
                 }
             }
         }
+    }
+
+    fn apply_candidate(&mut self, point: Point2d) -> bool {
+        self.candidate = self.playfield.get_field_at(&point);
+        if !self.candidate.visited {
+            self.candidate.distance = self.current_node.distance + self.candidate.penalty;
+            self.candidate.predecessor = Some(self.current_node.my_pos.clone());
+            self.playfield.set_field_at(&point, &self.candidate);
+        }
+        point == self.playfield.destination
     }
 }
 
@@ -155,7 +161,7 @@ impl Playfield {
         }
     }
 
-    fn glue_path_to_destination(&self, node: Node, path: &mut Path) {
+    fn glue_path_to_destination(&self, node: &Node, path: &mut Path) {
         let mut current_pos = Point2d { x: node.my_pos.x, y: node.my_pos.y};
         loop {
             let n = self.get_field_at(&current_pos);
@@ -211,7 +217,7 @@ pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u
     let start_point = Point2d {x: start.0, y: start.1};
     let destination_point = Point2d {x: destination.0, y: destination.1};
     let playfield = Playfield::new(width, height, start_point, destination_point, map);
-    let mut pf = Pathfinder{ playfield };
+    let mut pf = Pathfinder{ playfield, ..Default::default() };
     pf.calculate()
 }
 
