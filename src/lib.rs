@@ -47,7 +47,7 @@ impl Pathfinder {
     fn calculate(&mut self) {
         loop {
             self.current_pos = self.playfield.find_shortest_distance();
-            self.current_node = self.playfield.get_field_at(&self.current_pos);
+            self.current_node = self.playfield.field_at(&self.current_pos);
             self.playfield.set_visited(&self.current_pos);
 
             for offset in OFFSETS.iter() {
@@ -66,7 +66,7 @@ impl Pathfinder {
     }
 
     fn apply_candidate(&mut self, point: Point2d) -> CandidateStatus {
-        self.candidate = self.playfield.get_field_at(&point);
+        self.candidate = self.playfield.field_at(&point);
         if !self.candidate.visited {
             self.candidate.distance = self.current_node.distance + self.candidate.penalty;
             self.candidate.predecessor = Some(self.current_node.my_pos.clone());
@@ -169,7 +169,7 @@ impl Playfield {
     fn glue_path_to_destination(&self, node: &Node, path: &mut Path) {
         let mut current_pos = Point2d { x: node.my_pos.x, y: node.my_pos.y};
         loop {
-            let n = self.get_field_at(&current_pos);
+            let n = self.field_at(&current_pos);
             path.steps.insert(0, n.my_pos);
             match n.predecessor {
                 None => return,
@@ -196,7 +196,7 @@ impl Playfield {
         pt.visited = true;
     }
 
-    fn get_field_at(&self, point: &Point2d) -> Node {
+    fn field_at(&self, point: &Point2d) -> Node {
         return self.field[self.to_index(point)].clone();
     }
 
