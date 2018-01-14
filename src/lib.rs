@@ -19,8 +19,8 @@ enum CandidateStatus {
 
 #[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Point2d {
-    pub x: u64,
-    pub y: u64
+    pub x: i64,
+    pub y: i64
 }
 
 #[derive(Clone, Debug, Default)]
@@ -81,8 +81,8 @@ static MAX_DISTANCE: f64 = std::f64::MAX;
 #[derive(Default)]
 // TODO: Privatize filed
 struct Playfield {
-    pub width: u64,
-    pub height: u64,
+    pub width: i64,
+    pub height: i64,
     field: Vec<Node>,
     start: Point2d,
     pub destination: Point2d,
@@ -127,7 +127,7 @@ impl fmt::Debug for Playfield {
 
 impl Playfield {
     // TODO: Validate width*height = vec.len
-    fn new(width: u64, height: u64, start: Point2d, destination: Point2d, map: Vec<f64>) -> Playfield {
+    fn new(width: i64, height: i64, start: Point2d, destination: Point2d, map: Vec<f64>) -> Playfield {
         let n = Node { distance: MAX_DISTANCE, ..Default::default() };
         let mut playfield: Playfield = Playfield { width, height, start, destination, ..Default::default() };
         playfield.field.resize((playfield.width * playfield.height) as usize, n);
@@ -151,18 +151,15 @@ impl Playfield {
 
     // TODO: Rework this. Maybe playfield should return neighbours according to given offset?
     fn apply_offset(&self, point: &Point2d, offset: &(i64, i64)) -> Result<Point2d, PathfindingError> {
-        if point.x == 0 && offset.0 == -1 {
-            Err(PathfindingError::OutOfMap)
-        } else if point.y == 0 && offset.1 == -1 {
-            Err(PathfindingError::OutOfMap)
-        } else if point.x == self.width-1 && offset.0 == 1 {
-            Err(PathfindingError::OutOfMap)
-        } else if point.y == self.height-1 && offset.1 == 1 {
-            Err(PathfindingError::OutOfMap)
-        } else {
-            Ok(
-                Point2d {x: (point.x as i64 + offset.0) as u64, y: (point.y as i64 + offset.1) as u64}
-                )
+        let new_x = point.x.checked_add(offset.0);
+        let new_y = point.x.checked_add(offset.1);
+        if new_x.is_some() && new_y.is_some()
+        {
+            { Ok(Point2d {x: (point.x as i64 + offset.0) as i64, y: (point.y as i64 + offset.1) as i64}) }
+        }
+        else
+        {
+            { Err(PathfindingError::OutOfMap) }
         }
     }
 
@@ -185,8 +182,8 @@ impl Playfield {
     }
 
     fn from_index(&self, i: usize) -> Point2d {
-        let y = (i as u64) / self.width;
-        let x = (i as u64) - y * self.width;
+        let y = (i as i64) / self.width;
+        let x = (i as i64) - y * self.width;
         Point2d { x, y }
     }
 
@@ -218,7 +215,7 @@ impl Playfield {
     }
 }
 
-pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u64, u64), destination: (u64, u64)) -> String {
+pub fn calculate_shortest_path(width: i64, height: i64, map: Vec<f64>, start: (i64, i64), destination: (i64, i64)) -> String {
     let start_point = Point2d {x: start.0, y: start.1};
     let destination_point = Point2d {x: destination.0, y: destination.1};
     let playfield = Playfield::new(width, height, start_point, destination_point, map);
