@@ -152,7 +152,7 @@ impl Playfield {
     // TODO: Rework this. Maybe playfield should return neighbours according to given offset?
     fn apply_offset(&self, point: &Point2d, offset: &(i64, i64)) -> Result<Point2d, PathfindingError> {
         let new_x = point.x.checked_add(offset.0);
-        let new_y = point.x.checked_add(offset.1);
+        let new_y = point.y.checked_add(offset.1);
         if new_x.is_some() && new_y.is_some()
         {
             { Ok(Point2d {x: (point.x as i64 + offset.0) as i64, y: (point.y as i64 + offset.1) as i64}) }
