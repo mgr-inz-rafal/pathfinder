@@ -11,6 +11,12 @@ enum PathfindingError {
     OutOfMap
 }
 
+#[derive(PartialEq)]
+enum CandidateStatus {
+    StillLooking,
+    AtDestination
+}
+
 #[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Point2d {
     pub x: u64,
@@ -38,7 +44,7 @@ pub struct Pathfinder {
 }
 
 impl Pathfinder {
-    fn calculate(&mut self) -> String {
+    fn calculate(&mut self) {
         loop {
             self.current_pos = self.playfield.find_shortest_distance();
             self.current_node = self.playfield.get_field_at(&self.current_pos);
@@ -49,10 +55,9 @@ impl Pathfinder {
                 match new_pos {
                     Err(_) => { continue; },
                     Ok(position) => {
-                        if self.apply_candidate(position) {
+                        if self.apply_candidate(position) == CandidateStatus::AtDestination {
                             self.playfield.glue_path_to_destination(&self.candidate, &mut self.path);
-                            let serialized = serde_json::to_string(&self.path).unwrap();
-                            return serialized;
+                            return;
                         }
                     }
                 }
@@ -60,14 +65,14 @@ impl Pathfinder {
         }
     }
 
-    fn apply_candidate(&mut self, point: Point2d) -> bool {
+    fn apply_candidate(&mut self, point: Point2d) -> CandidateStatus {
         self.candidate = self.playfield.get_field_at(&point);
         if !self.candidate.visited {
             self.candidate.distance = self.current_node.distance + self.candidate.penalty;
             self.candidate.predecessor = Some(self.current_node.my_pos.clone());
             self.playfield.set_field_at(&point, &self.candidate);
         }
-        point == self.playfield.destination
+        if point == self.playfield.destination { CandidateStatus::AtDestination } else { CandidateStatus::StillLooking }
     }
 }
 
@@ -83,7 +88,7 @@ struct Playfield {
     pub destination: Point2d,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Debug)]
 struct Path {
     steps: Vec<Point2d>
 }
@@ -218,7 +223,8 @@ pub fn calculate_shortest_path(width: u64, height: u64, map: Vec<f64>, start: (u
     let destination_point = Point2d {x: destination.0, y: destination.1};
     let playfield = Playfield::new(width, height, start_point, destination_point, map);
     let mut pf = Pathfinder{ playfield, ..Default::default() };
-    pf.calculate()
+    pf.calculate();
+    serde_json::to_string(&pf.path).unwrap()
 }
 
 #[cfg(test)]
@@ -251,5 +257,3 @@ mod tests {
         assert_eq!(deserialized.steps[5], Point2d{ x: 4, y: 1});
    }
 }
-
-// TODO: Return with Option everywhere
