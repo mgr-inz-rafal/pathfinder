@@ -155,7 +155,7 @@ impl Playfield {
         let new_y = point.y.checked_add(offset.1);
         if new_x.is_some() && new_y.is_some()
         {
-            { Ok(Point2d {x: (point.x + offset.0), y: (point.y + offset.1)}) }
+            { Ok(Point2d {x: new_x.unwrap(), y: new_y.unwrap()}) }
         }
         else
         {
