@@ -70,7 +70,7 @@ impl Pathfinder {
         if !self.candidate.visited {
             self.candidate.distance = self.current_node.distance + self.candidate.penalty;
             self.candidate.predecessor = Some(self.current_node.my_pos.clone());
-            self.playfield.set_field_at(&point, &self.candidate);
+            self.playfield.set_field_at(&point, &self.candidate);   // See why I "cannot move out of borrowed content" and need to borrow candidate
         }
         if point == self.playfield.destination { CandidateStatus::AtDestination } else { CandidateStatus::StillLooking }
     }
@@ -149,13 +149,14 @@ impl Playfield {
         self.field[start_index].distance = 0.0;
     }
 
-    // TODO: Rework this. Maybe playfield should return neighbours according to given offset?
     fn apply_offset(&self, point: &Point2d, offset: &(i64, i64)) -> Result<Point2d, PathfindingError> {
-        let new_x = point.x.checked_add(offset.0);
-        let new_y = point.y.checked_add(offset.1);
-        if new_x.is_some() && new_y.is_some()
+        let new_x = point.x + offset.0;
+        let new_y = point.y + offset.1;
+
+        if new_x.is_positive() && new_x < self.width &&
+           new_y.is_positive() && new_y < self.height
         {
-            { Ok(Point2d {x: new_x.unwrap(), y: new_y.unwrap()}) }
+            { Ok(Point2d {x: new_x, y: new_y}) }
         }
         else
         {
@@ -178,6 +179,12 @@ impl Playfield {
     }
 
     fn to_index(&self, point: &Point2d) -> usize {
+        if point.x.is_negative() || point.y.is_negative() {
+            panic!("Referencing field with negative coordinates: ({},{})", point.x, point.y);
+        }
+        if point.x >= self.width || point.y >= self.height {
+            panic!("Referencing field from beyond the map boundaries: ({},{}) - maximum indices: ({},{})", point.x, point.y, self.width-1, self.height-1);
+        }
         (point.y * self.width + point.x) as usize
     }
 
@@ -229,7 +236,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn lib_find_shortest_path_alt() {
+    fn happy_path() {
         let test_level = vec![
             1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
             1.0, 0.1, 0.7, 0.1, 0.1, 0.1, 1.0,
@@ -252,5 +259,110 @@ mod tests {
         assert_eq!(deserialized.steps[3], Point2d{ x: 3, y: 2});
         assert_eq!(deserialized.steps[4], Point2d{ x: 3, y: 1});
         assert_eq!(deserialized.steps[5], Point2d{ x: 4, y: 1});
+   }
+
+    #[test]
+    fn falling_over_top_edge() {
+        let test_level = vec![
+            1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+        ];
+        let width = 7;
+        let height = 5;
+        let start = (1, 1);
+        let destination = (4, 1);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+
+        // Got JSON - deserialize it and verify predefined path
+        let deserialized: Path = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(deserialized.steps[0], Point2d{ x: 1, y: 1});
+        assert_eq!(deserialized.steps[1], Point2d{ x: 1, y: 2});
+        assert_eq!(deserialized.steps[2], Point2d{ x: 2, y: 2});
+        assert_eq!(deserialized.steps[3], Point2d{ x: 3, y: 2});
+        assert_eq!(deserialized.steps[4], Point2d{ x: 3, y: 1});
+        assert_eq!(deserialized.steps[5], Point2d{ x: 4, y: 1});
+   }
+
+    #[test]
+    fn falling_over_left_edge() {
+        let test_level = vec![
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+            0.0, 0.1, 0.7, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+        ];
+        let width = 7;
+        let height = 5;
+        let start = (1, 1);
+        let destination = (4, 1);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+
+        // Got JSON - deserialize it and verify predefined path
+        let deserialized: Path = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(deserialized.steps[0], Point2d{ x: 1, y: 1});
+        assert_eq!(deserialized.steps[1], Point2d{ x: 1, y: 2});
+        assert_eq!(deserialized.steps[2], Point2d{ x: 2, y: 2});
+        assert_eq!(deserialized.steps[3], Point2d{ x: 3, y: 2});
+        assert_eq!(deserialized.steps[4], Point2d{ x: 3, y: 1});
+        assert_eq!(deserialized.steps[5], Point2d{ x: 4, y: 1});
+   }
+
+    #[test]
+    fn falling_over_bottom_edge() {
+        let test_level = vec![
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+            0.0, 0.1, 0.7, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0
+        ];
+        let width = 7;
+        let height = 5;
+        let start = (1, 4);
+        let destination = (4, 1);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+
+        // Got JSON - deserialize it and verify predefined path
+        let deserialized: Path = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(deserialized.steps[0], Point2d{ x: 1, y: 4});
+        assert_eq!(deserialized.steps[1], Point2d{ x: 1, y: 3});
+        assert_eq!(deserialized.steps[2], Point2d{ x: 2, y: 3});
+        assert_eq!(deserialized.steps[3], Point2d{ x: 3, y: 3});
+        assert_eq!(deserialized.steps[4], Point2d{ x: 3, y: 2});
+        assert_eq!(deserialized.steps[5], Point2d{ x: 3, y: 1});
+        assert_eq!(deserialized.steps[6], Point2d{ x: 4, y: 1});
+   }
+
+    #[test]
+    fn falling_over_right_edge() {
+        let test_level = vec![
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7, 0.1, 0.1, 0.1, 0.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 0.1, 0.1, 0.1, 0.1, 0.1, 1.0,
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+        ];
+        let width = 7;
+        let height = 5;
+        let start = (4, 1);
+        let destination = (1, 1);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+
+        // Got JSON - deserialize it and verify predefined path
+        let deserialized: Path = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(deserialized.steps[0], Point2d{ x: 4, y: 1});
+        assert_eq!(deserialized.steps[1], Point2d{ x: 4, y: 2});
+        assert_eq!(deserialized.steps[2], Point2d{ x: 3, y: 2});
+        assert_eq!(deserialized.steps[3], Point2d{ x: 2, y: 2});
+        assert_eq!(deserialized.steps[4], Point2d{ x: 1, y: 2});
+        assert_eq!(deserialized.steps[5], Point2d{ x: 1, y: 1});
    }
 }
