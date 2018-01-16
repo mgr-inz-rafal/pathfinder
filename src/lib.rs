@@ -7,8 +7,18 @@ extern crate serde_json;
 
 use std::fmt;
 
+#[derive(Debug)]
 enum PathfindingError {
     OutOfMap
+}
+
+#[derive(Debug)]
+enum MapError {
+    SizeMismatch,
+    StartOutOfBounds,
+    DestinationOutOfBounds,
+    StartEqEnd,
+    TooBig
 }
 
 #[derive(PartialEq)]
@@ -33,6 +43,8 @@ pub struct Node {
 }
 
 static OFFSETS: [(i64, i64); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+static MAX_WIDTH: i64 = 10000;
+static MAX_HEIGHT: i64 = 10000;
 
 #[derive(Default)]
 pub struct Pathfinder {
@@ -126,13 +138,27 @@ impl fmt::Debug for Playfield {
 }
 
 impl Playfield {
-    // TODO: Validate width*height = vec.len
-    fn new(width: i64, height: i64, start: Point2d, destination: Point2d, map: Vec<f64>) -> Playfield {
+    fn new(width: i64, height: i64, start: Point2d, destination: Point2d, map: Vec<f64>) -> Result<Playfield, MapError> {
+        if width > MAX_WIDTH || height > MAX_HEIGHT {
+            return Err(MapError::TooBig);
+        }
+        if (width * height) as usize != map.len() {
+            return Err(MapError::SizeMismatch);
+        }
+        if start == destination {
+            return Err(MapError::StartEqEnd);
+        }
+        if start.x < 0 || start.x >= width || start.y < 0 || start.y >= height {
+            return Err(MapError::StartOutOfBounds)
+        }
+        if destination.x < 0 || destination.x >= width || destination.y < 0 || destination.y >= height {
+            return Err(MapError::DestinationOutOfBounds)
+        }
         let n = Node { distance: MAX_DISTANCE, ..Default::default() };
         let mut playfield: Playfield = Playfield { width, height, start, destination, ..Default::default() };
         playfield.field.resize((playfield.width * playfield.height) as usize, n);
         playfield.init_with_vector(map);
-        playfield
+        Ok(playfield)
     }
 
     fn init_with_vector(&mut self, playfield: Vec<f64>) {
@@ -145,10 +171,10 @@ impl Playfield {
                 my_pos: position,
                 ..Default::default() };
         }
+
         let start_index = self.to_index(&self.start);
         self.field[start_index].distance = 0.0;
     }
-
     fn apply_offset(&self, point: &Point2d, offset: &(i64, i64)) -> Result<Point2d, PathfindingError> {
         let new_x = point.x + offset.0;
         let new_y = point.y + offset.1;
@@ -225,10 +251,14 @@ impl Playfield {
 pub fn calculate_shortest_path(width: i64, height: i64, map: Vec<f64>, start: (i64, i64), destination: (i64, i64)) -> String {
     let start_point = Point2d {x: start.0, y: start.1};
     let destination_point = Point2d {x: destination.0, y: destination.1};
-    let playfield = Playfield::new(width, height, start_point, destination_point, map);
-    let mut pf = Pathfinder{ playfield, ..Default::default() };
-    pf.calculate();
-    serde_json::to_string(&pf.path).unwrap()
+    match Playfield::new(width, height, start_point, destination_point, map) {
+        Ok(playfield) => {
+            let mut pf = Pathfinder{ playfield, ..Default::default() };
+            pf.calculate();
+            serde_json::to_string(&pf.path).unwrap()
+        },
+        Err(e) => { format!("[ERROR] {:?}", e) }
+    }
 }
 
 #[cfg(test)]
@@ -250,7 +280,6 @@ mod tests {
         let destination = (4, 1);
         let result = calculate_shortest_path(width, height, test_level, start, destination);
 
-        // Got JSON - deserialize it and verify predefined path
         let deserialized: Path = serde_json::from_str(&result).unwrap();
 
         assert_eq!(deserialized.steps[0], Point2d{ x: 1, y: 1});
@@ -365,4 +394,138 @@ mod tests {
         assert_eq!(deserialized.steps[4], Point2d{ x: 1, y: 2});
         assert_eq!(deserialized.steps[5], Point2d{ x: 1, y: 1});
    }
+
+    #[test]
+    fn map_validation_start_eq_destination() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = 3;
+        let height = 3;
+        let start = (2, 2);
+        let destination = (2, 2);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] StartEqEnd");
+    }
+
+    #[test]
+    fn map_validation_size_mismatch() {
+        let test_level = vec![
+            1.0, 1.0,
+            1.0, 0.1
+        ];
+        let width = 3;
+        let height = 3;
+        let start = (2, 2);
+        let destination = (2, 2);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] SizeMismatch");
+    }
+
+    #[test]
+    fn map_validation_start_out_of_bounds_negative() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = 3;
+        let height = 3;
+        let start = (-3, -3);
+        let destination = (2, 2);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] StartOutOfBounds");
+    }
+
+    #[test]
+    fn map_validation_start_out_of_bounds_positive() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = 3;
+        let height = 3;
+        let start = (10, 10);
+        let destination = (2, 2);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] StartOutOfBounds");
+    }
+
+    #[test]
+    fn map_validation_destination_out_of_bounds_negative() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = 3;
+        let height = 3;
+        let start = (1, 1);
+        let destination = (-100, -100);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] DestinationOutOfBounds");
+    }
+
+    #[test]
+    fn map_validation_destination_out_of_bounds_positive() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = 3;
+        let height = 3;
+        let start = (1, 1);
+        let destination = (200, 200);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] DestinationOutOfBounds");
+    }
+
+    #[test]
+    fn map_validation_destination_too_big_width() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = MAX_WIDTH+1;
+        let height = 3;
+        let start = (1, 1);
+        let destination = (200, 200);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] TooBig");
+    }
+
+    #[test]
+    fn map_validation_destination_too_big_height() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = 3;
+        let height = MAX_HEIGHT+1;
+        let start = (1, 1);
+        let destination = (200, 200);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] TooBig");
+    }
+
+    #[test]
+    fn map_validation_destination_too_big_height_width() {
+        let test_level = vec![
+            1.0, 1.0, 1.0,
+            1.0, 0.1, 0.7,
+            1.0, 0.1, 0.1
+        ];
+        let width = MAX_WIDTH+1;
+        let height = MAX_HEIGHT+1;
+        let start = (1, 1);
+        let destination = (200, 200);
+        let result = calculate_shortest_path(width, height, test_level, start, destination);
+        assert_eq!(result, "[ERROR] TooBig");
+    }
 }
