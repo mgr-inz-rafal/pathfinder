@@ -1,5 +1,3 @@
-// TODO: Not sure if lib should spit out JSON... Maybe 'pathfinder-server' should
-// just receive an object and then work on the serialization.
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
@@ -103,6 +101,13 @@ struct Playfield {
 #[derive(Default, Serialize, Deserialize, Debug)]
 struct Path {
     steps: Vec<Point2d>
+}
+
+#[derive(Default, Serialize, Deserialize, Debug)]
+struct Response {
+    status: bool,
+    comment: String,
+    path: Path
 }
 
 #[cfg(debug_assertions)]
@@ -255,9 +260,13 @@ pub fn calculate_shortest_path(width: i64, height: i64, map: Vec<f64>, start: (i
         Ok(playfield) => {
             let mut pf = Pathfinder{ playfield, ..Default::default() };
             pf.calculate();
-            serde_json::to_string(&pf.path).unwrap()
+            let mut resp = Response { status: true, comment: "Ok".to_string(), path: pf.path };
+            serde_json::to_string(&resp).unwrap()
         },
-        Err(e) => { format!("[ERROR] {:?}", e) }
+        Err(e) => {
+            let mut resp = Response { status: false, comment: format!("[ERROR] {:?}", e), ..Default::default() };
+            serde_json::to_string(&resp).unwrap()
+         }
     }
 }
 
